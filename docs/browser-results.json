@@ -1,0 +1,29 @@
+{
+  "checks": [
+    "offline flowchart, KaTeX and encoded local SVG",
+    "20 locally bundled KaTeX font faces",
+    "Unicode heading anchor navigation",
+    "linked document, sequence diagram, nested relative image and fragment",
+    "linked file disk edits polled and restored",
+    "source toggle retains linked document",
+    "manual refresh of linked document",
+    "back restores original Markdown",
+    "dark theme Mermaid and Markdown",
+    "390px layout without document horizontal overflow",
+    "normal example has no page/console errors or external requests",
+    "HTTP image and external link with isolated opener (controlled network fixture)",
+    "bad Mermaid and missing image preserve document; HTML inert; traversal blocked",
+    "SDK file.watch refresh and recovery",
+    "delete/recreate recovery",
+    "empty, size limit and recovery"
+  ],
+  "pageErrors": [],
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 400 (Bad Request)",
+    "Failed to load resource: the server responded with a status of 400 (Bad Request)"
+  ],
+  "requests": [
+    "https://preview-test.invalid/image.svg"
+  ],
+  "note": "Negative resource cases intentionally return HTTP 400; external URLs use controlled Playwright responses."
+}

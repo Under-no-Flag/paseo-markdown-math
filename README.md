@@ -1,0 +1,122 @@
+# Paseo Markdown + Math
+
+独立 Paseo 文件面板插件 v0.2.0。为已有 Markdown 文件提供 **KaTeX 公式、Mermaid 图表、图片和文档链接**，通过 `addFilePanel` 注册，不修改 Paseo 主项目，不依赖 Canvas。
+
+## 使用
+
+安装后，在 Paseo 工作区的文件面板打开 Markdown，选择 **Open with → Markdown + Math**。可用本仓库的 `examples/math-demo.md` 体验公式、图表、图片与文档导航。
+
+- 保存原 Markdown 后自动更新；点击「刷新」重新读取内容和本地图片。
+- 点击相对 Markdown 链接在当前面板打开，点击「← 返回」回到上一文档。
+- 链接打开的文档每 2 秒检查更新；「只读源码」查看当前文档。
+- 仅图片文件发生变化时，点击「刷新」加载新图片。
+- 插件不修改原文件或默认文件关联。编辑请使用原编辑器。
+
+插件按 host 安装；使用远程工作区时，需要在对应的 0.13.x 主机上另行安装。
+
+![公式、图片与 Mermaid 时序图预览](docs/images/preview.png)
+
+## 支持内容
+
+| 内容 | 行为 |
+| --- | --- |
+| `.md` / `.markdown` / `.mdown` / `.mkd` | 可选文件面板，大小写不敏感 |
+| 标题、列表、引用、表格、代码块 | 标准 Markdown；代码不执行，不做语法高亮 |
+| `$...$`、`$$...$$`、`\(...\)`、`\[...\]`、math 围栏 | KaTeX；分式、矩阵、对齐环境等 |
+| mermaid 围栏 | 本地 Mermaid 12.2；已验证流程图、时序图；可展开源码 |
+| 本地图片 | PNG/JPEG/GIF/WebP/AVIF/SVG/BMP；浏览器支持的格式可显示 |
+| HTTP(S) 图片 | 直接加载，依赖网络、服务器权限及客户端网络策略 |
+| 相对路径 | 以当前显示的 Markdown 所在目录为基准，支持中文、空格编码、`../` |
+| `/assets/a.png` | 从当前工作区根目录查找，不是系统根目录 |
+| 相对 Markdown 链接 | 当前面板打开，支持 `#标题` 定位和返回 |
+| 文内锚点 | 自动生成标题 ID，支持中文；同名标题追加 `-1`、`-2` |
+| HTTP(S) 链接、裸网址 | 用户点击打开独立页面，隔离 opener |
+| 无效公式/图表、缺失图片 | 就地显示提示，保留其余文档 |
+| 原生 iOS/Android | 只读源码回退，未做真机验证 |
+
+示例：
+
+````markdown
+行内公式 $E=mc^2$。
+
+```mermaid
+flowchart LR
+    A[Markdown] --> B[公式与图表预览]
+```
+
+![本地图片](./assets/流程%20示意.svg)
+![网络图片](https://example.com/image.png)
+[另一个文档](./guide/details.md#详细说明)
+[本页标题](#图片与链接)
+````
+
+原始 HTML 转义显示。完整 TeX 文档、TikZ、MDX、任意宏包、非 Markdown 本地文件链接、`file:` / `mailto:` 等协议不在支持范围。Mermaid 的交互回调、HTML 标签与外部图片等受严格模式和内容策略限制；并非全部 Mermaid 配置均可用。
+
+## 安装与开发
+
+需要 Node.js 22.12+、Paseo 桌面/Web 客户端及对应 daemon **0.13.x**。当前声明 `>=0.13.0 <0.14.0`。
+
+```sh
+git clone https://github.com/Under-no-Flag/paseo-markdown-math.git
+cd paseo-markdown-math
+npm ci
+npm run check
+paseo plugin install "$PWD"
+paseo plugin ls paseo-markdown-math --json
+```
+
+宿主需要已启用插件。v0.2 新增只读服务端入口，由 Paseo 启动，用于读取当前工作区内的图片和链接文档；不开放独立网络端口。Git 源安装会运行 manifest 的 `npm ci` 和 `npm run build`。
+
+```sh
+npm run dev
+# http://127.0.0.1:5173/
+```
+
+开发页加载真实编译后的客户端及 SDK hooks，本地中间件使用同一服务端资源读取函数。文件句柄、工作区和主题由适配器提供，不连接 Paseo daemon。示例相对资源可正常访问。浏览器选择的任意文件仅加载文本，无法获知其所在目录，因此相对资源会提示使用 Paseo；刷新开发页可恢复项目示例。
+
+修改源码后重启开发页构建并 reload Paseo：
+
+```sh
+npm run check
+npm run verify:host
+paseo plugin reload paseo-markdown-math --json
+npm run dev
+# 另一个终端，需已安装 Chrome：
+npm run test:browser
+```
+
+不承诺源码热更新。`verify:host` 使用安装的真实 Paseo 编译器验证客户端、服务端入口，并在无 DOM 的模拟 native 环境验证客户端注册/清理；它不是宿主 UI 或手机验收。可通过 `PASEO_COMPILER_PATH` 指定编译器内部路径，插件运行不依赖它。
+
+## 实现与边界
+
+- `index.client.tsx`：`addFilePanel` 注册。
+- `client/panel.tsx`：SDK 文件监听、预览/源码、文档历史、链接文档轮询。
+- `client/render.ts`：Markdown、KaTeX、标题锚点、图片/链接标记。
+- `client/web.ts`：隔离 iframe 与带随机 token、来源校验的消息桥。
+- `scripts/frame-runtime.ts`：仅在 iframe 内执行的 Mermaid、图片和链接交互；构建为字符串，不在 Paseo 原生宿主执行。
+- `index.server.ts`、`server/resources.ts`：SDK RPC、工作区查找、只读资源解析。
+- `shared/resources.ts`：客户端/服务端共享的 RPC 输入输出契约。
+- `examples/`：流程图、时序图、中文路径 SVG、嵌套文档示例。
+- `tests/`、`scripts/browser-test.mjs`：渲染、资源边界和浏览器交互验证。
+
+KaTeX 字体与 Mermaid 都随包提供；公式、图表、本地图片不需要 CDN。仅明确写入文档的 HTTP(S) 图片和点击的外链需要网络。React、React Native、Zod 与 Paseo SDK 由宿主提供。
+
+文档 iframe 不允许同源访问和表单，脚本仅允许带随机 nonce 的打包渲染器。Markdown 禁用 HTML，KaTeX `trust:false`，Mermaid `securityLevel:strict`。这些约束针对文档内容，整个插件仍是受信任的 Paseo 扩展。
+
+本地资源先校验工作区范围，再校验解析后的真实路径，拒绝路径越界和指向外部的符号链接。当前工作区有权限读取的普通文件才可作为资源。不支持敌对进程并发替换工作区目录的强隔离模型。
+
+限制：单图 5 MiB、单页最多 32 张本地图片、图片合计约 20 MiB；链接文档读取限 2 MiB；预览限 500,000 个 UTF-16 字符；单页最多 20 个 Mermaid 围栏，每图 50,000 字符/1,000 边。字体、公式、图表复杂度仍会影响渲染时间。源码视图显示已读取的完整文本。
+
+内容、主题或视图变化会重建预览；未保存滚动位置。链接历史仅保留在当前面板实例中。Paseo 0.13 没有公开的打开文件标签页接口，因此使用面板内导航。
+
+## 检查与卸载
+
+```sh
+npm run check
+npm run verify:host
+paseo plugin logs paseo-markdown-math --json
+paseo plugin disable paseo-markdown-math
+paseo plugin remove paseo-markdown-math
+```
+
+移除插件不删除项目源文件。依据见 [API 核实](docs/API-RESEARCH.md)，实测范围见 [验收说明](docs/ACCEPTANCE.md)。

@@ -1,0 +1,19 @@
+{
+  "id": "paseo-markdown-math",
+  "name": "Markdown + Math",
+  "description": "Markdown preview with locally bundled KaTeX and Mermaid, workspace/HTTP images and document links. Desktop/web preview; native read-only source.",
+  "requirements": {
+    "paseo": ">=0.13.0 <0.14.0"
+  },
+  "build": [
+    [
+      "npm",
+      "ci"
+    ],
+    [
+      "npm",
+      "run",
+      "build"
+    ]
+  ]
+}

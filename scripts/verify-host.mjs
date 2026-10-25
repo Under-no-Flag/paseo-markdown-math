@@ -1,0 +1,28 @@
+// Optional integration check using the installed CLI's real compiler; no daemon changes.
+import { execFileSync } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+const root = execFileSync('npm', ['root', '-g'], {encoding:'utf8'}).trim();
+const server = join(root, '@getpaseo/cli/node_modules/@getpaseo/server');
+const compiler = process.env.PASEO_COMPILER_PATH || join(server, 'dist/server/server/plugins/compiler.js');
+if (!existsSync(compiler)) throw new Error('Install the Paseo 0.13 CLI, or set PASEO_COMPILER_PATH to its compiler.js. This optional check uses an internal compiler path.');
+console.log('Host compiler:', JSON.parse(readFileSync(join(server,'package.json'),'utf8')).version);
+const {compilePlugin} = await import(pathToFileURL(compiler).href);
+const {clientBundle,serverBundle} = await compilePlugin({client:resolve('index.client.tsx'),server:resolve('index.server.ts')});
+assert.ok(serverBundle);
+const React = await import('react');
+const jsx = await import('react/jsx-runtime');
+const zod = await import('zod');
+const imports = {'@getpaseo/plugin':{defineRpc:v=>v},'react':React,'react/jsx-runtime':jsx,'react-native':{Platform:{OS:'ios'}},'zod':zod,'@getpaseo/plugin/client':{},'@getpaseo/plugin/client/ui':{}};
+const plugin = vm.runInNewContext(clientBundle)(id => {assert.ok(id in imports, `Unexpected runtime dependency: ${id}`);return imports[id];});
+let registration;
+let removed = false;
+const cleanup = plugin.default({addFilePanel(value){registration=value; return () => {removed=true;};}});
+assert.equal(registration.id,'markdown-math');
+assert.ok(registration.files.extensions.includes('md'));
+assert.equal(typeof registration.Component,'function');
+cleanup();assert.ok(removed);
+console.log(`PASS: actual Paseo compiler, client and server bundles (${clientBundle.length} characters), native-safe module evaluation, addFilePanel registration and cleanup.`);

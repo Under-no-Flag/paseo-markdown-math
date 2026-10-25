@@ -1,0 +1,13 @@
+node_modules/
+dist/
+client/generated/
+.DS_Store
+*.log
+test-results/
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
