@@ -41,3 +41,9 @@
 - [Mermaid securityLevel](https://mermaid.js.org/config/schema-docs/config-properties-securitylevel.html) 与 [配置接口](https://mermaid.js.org/config/setup/mermaid/interfaces/MermaidConfig.html)：采用 strict、禁用自动启动、限制文本/边数量，并保护安全配置不被文档指令覆盖。
 - [Mermaid 配置方式](https://mermaid.js.org/config/configuration)：构建时打包 JavaScript；只在 iframe 的 nonce 脚本内初始化/渲染。宿主 native 求值不会访问 DOM。
 - Mermaid 依赖锁定 12.2.0；渲染新增脚本，因此 v0.1 的“完全无脚本 iframe”描述已替换为 CSP nonce + 不允许同源访问的 iframe。HTTP 图片经用户文档中的 URL 直接加载，不经过服务端下载代理。
+
+## npm 发布兼容性
+
+[Paseo 发布指南](https://paseo.sh/docs/plugins/publishing) 要求资源在打包时生成，获取 npm 包时跳过生命周期脚本；manifest 声明的准备命令仍会执行。v0.2.1 的准备命令在资源已经存在时直接退出，仅为 Git 安装生成缺失资源。
+
+本机 npm 12.2.1 已移除 `npm shrinkwrap` 及 shrinkwrap 文件读取支持，见 [npm 官方变更日志](https://github.com/npm/cli/blob/latest/CHANGELOG.md)。因此保留开发用 package-lock.json，发布时用 bundleDependencies 携带固定运行依赖。Mermaid 是构建依赖，其浏览器代码已作为字符串打包进生成资源，不在用户安装时重新安装。

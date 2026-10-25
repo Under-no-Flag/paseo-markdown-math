@@ -7,13 +7,11 @@
   },
   "build": [
     [
-      "npm",
-      "ci"
-    ],
-    [
-      "npm",
-      "run",
-      "build"
+      "node",
+      "scripts/prepare-install.mjs"
     ]
+  ],
+  "media": [
+    "docs/images/preview.png"
   ]
 }

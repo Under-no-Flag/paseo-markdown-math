@@ -1,6 +1,6 @@
 # Paseo Markdown + Math
 
-独立 Paseo 文件面板插件 v0.2.0。为已有 Markdown 文件提供 **KaTeX 公式、Mermaid 图表、图片和文档链接**，通过 `addFilePanel` 注册，不修改 Paseo 主项目，不依赖 Canvas。
+独立 Paseo 文件面板插件 v0.2.1。为已有 Markdown 文件提供 **KaTeX 公式、Mermaid 图表、图片和文档链接**，通过 `addFilePanel` 注册，不修改 Paseo 主项目，不依赖 Canvas。
 
 ## 使用
 
@@ -52,7 +52,19 @@ flowchart LR
 
 原始 HTML 转义显示。完整 TeX 文档、TikZ、MDX、任意宏包、非 Markdown 本地文件链接、`file:` / `mailto:` 等协议不在支持范围。Mermaid 的交互回调、HTML 标签与外部图片等受严格模式和内容策略限制；并非全部 Mermaid 配置均可用。
 
-## 安装与开发
+## 从 npm 安装
+
+在目标 Paseo daemon 所在主机执行：
+
+```sh
+paseo plugin install npm:paseo-markdown-math@0.2.1
+```
+
+也可在 Paseo「设置 → 插件」填写 `npm:paseo-markdown-math@0.2.1`。这是插件包，不是供应用代码导入的 JavaScript 库。需要 Paseo 0.13.x 和可用的 npm。
+
+npm 包包含字体、Mermaid 生成资源和固定的运行依赖，不会在安装时下载开发工具或重新构建前端。npm 12 已移除 shrinkwrap 支持，因此使用 `bundleDependencies` 固定随包发布的运行依赖树。
+
+## 从源码开发
 
 需要 Node.js 22.12+、Paseo 桌面/Web 客户端及对应 daemon **0.13.x**。当前声明 `>=0.13.0 <0.14.0`。
 
@@ -65,7 +77,7 @@ paseo plugin install "$PWD"
 paseo plugin ls paseo-markdown-math --json
 ```
 
-宿主需要已启用插件。v0.2 新增只读服务端入口，由 Paseo 启动，用于读取当前工作区内的图片和链接文档；不开放独立网络端口。Git 源安装会运行 manifest 的 `npm ci` 和 `npm run build`。
+宿主需要已启用插件。v0.2 新增只读服务端入口，由 Paseo 启动，用于读取当前工作区内的图片和链接文档；不开放独立网络端口。Git 源安装在缺少生成资源时执行 `npm ci --include=dev --ignore-scripts` 和 `npm run assets`；已打包的 npm 安装会跳过这一步。
 
 ```sh
 npm run dev
@@ -120,3 +132,19 @@ paseo plugin remove paseo-markdown-math
 ```
 
 移除插件不删除项目源文件。依据见 [API 核实](docs/API-RESEARCH.md)，实测范围见 [验收说明](docs/ACCEPTANCE.md)。
+
+## 打包与发布
+
+从 GitHub 克隆开发仓库后运行：
+
+```sh
+npm ci
+npm run check
+npm pack --pack-destination ..
+npm run test:package
+npm publish ../paseo-markdown-math-0.2.1.tgz --access public
+```
+
+`prepack` 生成资源。npm 包包含运行源文件、只读准备脚本、示例、文档和运行依赖；开发页、测试工具与构建工具只保留在 Git 仓库。`test:package` 把实际压缩包安装到开发仓库外的临时目录，禁用安装脚本及开发依赖，再用真实 Paseo 编译器验证客户端注册和服务端图片 RPC。该测试需要本机 Paseo 0.13 CLI。
+
+发布新版本前更新版本号和锁文件，完成上述验证；npm 发布和 Paseo 官方插件目录审核是两个独立步骤。本项目未声称通过官方目录审核。

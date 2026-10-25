@@ -33,3 +33,10 @@
 - 浏览器测试将异常资源用例放在新页面，避免 Chrome 在多次调整窗口、关闭弹窗和替换 iframe 后出现的点击命中 iframe 容器现象；正常文档鼠标导航与负例导航均分别验证。
 - Browser 插件未提供，按前端测试技能使用 Playwright 本机 Chrome。开发页工作区/文件句柄由适配器提供；不能代替真实 daemon 的 RPC 往返或原始文件监听验收。
 - 尚未完成：Paseo 桌面中实际选择插件打开 .md 的视觉验收；真实远程工作区与原生手机 UI 未验收。
+
+## v0.2.1 npm 包验证
+
+- 生成资源随 npm 包发布；npm 12 使用 bundleDependencies 固定运行依赖，避免依赖已移除的 shrinkwrap 机制。
+- 在仓库外的临时目录安装实际 tgz，使用 `--ignore-scripts --omit=dev --legacy-peer-deps`，模拟 Paseo npm 获取方式。
+- 验证生成字体、Mermaid、运行依赖、入口和图片存在；开发页、测试目录及 Vite 未安装。
+- manifest 准备步骤确认无需构建；真实 Paseo 编译器成功编译两个入口；客户端注册/清理成功；打包后的服务端 RPC 成功读取示例 SVG。

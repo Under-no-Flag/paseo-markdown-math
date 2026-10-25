@@ -1,27 +1,18 @@
 {
   "name": "paseo-markdown-math",
-  "private": true,
-  "version": "0.2.0",
+  "version": "0.2.1",
   "files": [
     "paseo-plugin.json",
     "index.client.tsx",
-    "client/",
-    "scripts/",
-    "dev/",
-    "index.html",
-    "tsconfig.json",
-    "tests/",
-    "examples/",
-    "docs/",
-    "README.md",
-    "OVERVIEW.md",
-    "THIRD_PARTY_NOTICES.md",
     "index.server.ts",
+    "client/",
     "server/",
     "shared/",
-    "tsconfig.server.json",
-    "tsconfig.frame.json",
-    "vite.config.ts"
+    "scripts/prepare-install.mjs",
+    "examples/",
+    "docs/",
+    "OVERVIEW.md",
+    "THIRD_PARTY_NOTICES.md"
   ],
   "scripts": {
     "assets": "node scripts/build-assets.mjs",
@@ -31,7 +22,10 @@
     "check": "npm run build && npm run typecheck && npm test",
     "dev": "npm run build && vite --host 127.0.0.1",
     "verify:host": "node scripts/verify-host.mjs",
-    "test:browser": "node scripts/browser-test.mjs"
+    "test:browser": "node scripts/browser-test.mjs",
+    "prepack": "npm run build",
+    "prepublishOnly": "npm run check",
+    "test:package": "node scripts/package-test.mjs"
   },
   "devDependencies": {
     "@getpaseo/plugin": "0.13.0",
@@ -49,15 +43,15 @@
     "tsx": "4.23.15",
     "typescript": "5.9.3",
     "vite": "8.3.5",
-    "zod": "4.6.7"
+    "zod": "4.6.7",
+    "mermaid": "12.2.0"
   },
   "type": "module",
   "description": "Paseo Markdown preview with KaTeX, Mermaid, workspace images and document links",
   "dependencies": {
     "@mdit/plugin-katex": "1.1.4",
     "katex": "0.19.1",
-    "markdown-it": "15.0.3",
-    "mermaid": "12.2.0"
+    "markdown-it": "15.0.3"
   },
   "engines": {
     "node": ">=22.12.0"
@@ -69,5 +63,22 @@
   "homepage": "https://github.com/Under-no-Flag/paseo-markdown-math#readme",
   "bugs": {
     "url": "https://github.com/Under-no-Flag/paseo-markdown-math/issues"
-  }
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "keywords": [
+    "paseo",
+    "paseo-plugin",
+    "markdown",
+    "katex",
+    "latex",
+    "mermaid"
+  ],
+  "bundleDependencies": [
+    "@mdit/plugin-katex",
+    "katex",
+    "markdown-it"
+  ]
 }
