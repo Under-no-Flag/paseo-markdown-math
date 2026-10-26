@@ -19,7 +19,7 @@
 7. 删除测试副本或引用不存在的图片，确认就地错误提示；恢复后预览应恢复。
 8. 用 Open with 切回内置面板，确认原文件未被插件写入。
 
-远程 host 需要单独安装、单独验收。原生移动端只读源码回退。
+远程 host 需要单独安装、单独验收。原生移动端从 v0.3 起提供主机渲染预览，见下文。
 
 ## 2026-10-25 v0.2 结果
 
@@ -40,3 +40,28 @@
 - 在仓库外的临时目录安装实际 tgz，使用 `--ignore-scripts --omit=dev --legacy-peer-deps`，模拟 Paseo npm 获取方式。
 - 验证生成字体、Mermaid、运行依赖、入口和图片存在；开发页、测试目录及 Vite 未安装。
 - manifest 准备步骤确认无需构建；真实 Paseo 编译器成功编译两个入口；客户端注册/清理成功；打包后的服务端 RPC 成功读取示例 SVG。
+
+## 2026-10-26 v0.3 iOS 适配验证
+
+实现未修改 Paseo 主项目。Chrome 在主机离屏渲染共用的 KaTeX/Mermaid 文档，PNG 分片和链接坐标经 SDK RPC 返回；手机只用宿主公开的 React Native Image、ScrollView 和 Pressable。
+
+- `npm run check`：构建、三组严格 TypeScript 检查、27 项原有测试。
+- `npm run verify:host`：真实 Paseo 0.13.0 编译器和无 DOM 原生模块注册/清理。
+- `npm run test:browser`：原有桌面/Web 16 组回归检查，1280×900 和 390×844。
+- `npm run test:native`：实际主机 Chrome 生成 2x PNG；KaTeX/流程图/时序图/本地 SVG/嵌套路径；文档链接和锚点；缺图和错误图表隔离；HTTP 请求计数为零；字符和高度限制、工作区越界、源文件符号链接、缺少浏览器错误、临时目录清理。
+- `npm run test:native-ui`：原生分支通过 React Native Web 适配器和真实 SDK hooks 运行。11 组检查覆盖首屏/页面身份/图像解码/无 iframe/无错误覆盖层、锚点、相对文档、时序图、源码/预览/刷新、返回、深色、390→900 宽度变化、外链、文件监听/删除/恢复、RPC 错误重试、过期请求屏蔽。正常流程无页面/控制台错误；错误重试用例预期 HTTP 400。
+- `npm run test:package`：在仓库外安装实际 npm tgz，禁用生命周期与开发依赖；编译两个入口，执行图片 RPC 和主机原生预览 RPC。不只检查文件是否存在。
+- Browser 插件不可用，浏览器验证使用 Playwright + 本机 Chrome；`?native` 只模拟原生分支，**不模拟 iOS 原生布局和手势实现**。截图保存位置由 `NATIVE_EVIDENCE_DIR` 指定，默认在聊天工作目录的 `work/native-qa`，不提交截图报告。
+
+### iPhone 上仍需确认
+
+本机没有 iOS simulator runtime，未声称真机通过。完成以下检查才算 iOS 端完整验收：
+
+1. 主机安装 Chrome/Edge/Chromium、插件更新至 0.3.0 并 running；iPhone 与 daemon 均为 Paseo 0.13.x。
+2. iPhone 重新打开 `examples/math-demo.md` → Markdown + Math，看到行内/块级公式、矩阵、流程图及图片，不是源码回退。
+3. 双指放大/缩小，滚动跨越 PNG 分片，确认没有断层、手势冲突、闪退；旋转屏幕后内容重新适配。
+4. 打开「详细说明」、验证时序图/嵌套图片/#详细说明定位；返回，点击本页锚点和外链。
+5. 切换明暗主题、源码、刷新；在主机编辑文件后手机自动更新。预览文字复制从源码视图进行。
+6. 主机浏览器不可用时出现可操作错误，恢复浏览器后重试成功。
+
+Android、Windows/Linux 主机浏览器发现、远程网络高延迟、原生 VoiceOver 和 iOS 双指缩放尚未实机验证。图像预览不支持选择正文、动画图片或 Mermaid 交互回调；网络图片通过设备浏览器打开。

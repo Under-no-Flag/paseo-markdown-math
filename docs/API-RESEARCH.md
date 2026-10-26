@@ -29,7 +29,7 @@
 
 ## 渲染容器选择
 
-`DocumentFrame` 公开 API 接收宿主 `PluginFile.url()` 的本地文件 URL，没有公开的 HTML 字符串 prop。本插件需要展示“由 Markdown 计算出的 HTML”，因此沿用官方 Markdown 示例的 web.ts DOM 适配模式，在 React Native Web 的 View 中挂载静态隔离 iframe。移动端明确回退为源码，不假冒 DocumentFrame 或私有 SDK 接口。
+`DocumentFrame` 公开 API 接收宿主 `PluginFile.url()` 的本地文件 URL，没有公开的 HTML 字符串 prop。本插件需要展示“由 Markdown 计算出的 HTML”，因此沿用官方 Markdown 示例的 web.ts DOM 适配模式，在 React Native Web 的 View 中挂载静态隔离 iframe。v0.2 移动端回退源码；v0.3 的原生方案见下文。
 
 主项目内置渲染是否支持所有公式，不是本插件的运行前提。本次没有声称完整审计内置 MarkdownRenderer 的所有语法分支。
 
@@ -47,3 +47,13 @@
 [Paseo 发布指南](https://paseo.sh/docs/plugins/publishing) 要求资源在打包时生成，获取 npm 包时跳过生命周期脚本；manifest 声明的准备命令仍会执行。v0.2.1 的准备命令在资源已经存在时直接退出，仅为 Git 安装生成缺失资源。
 
 本机 npm 12.2.1 已移除 `npm shrinkwrap` 及 shrinkwrap 文件读取支持，见 [npm 官方变更日志](https://github.com/npm/cli/blob/latest/CHANGELOG.md)。因此保留开发用 package-lock.json，发布时用 bundleDependencies 携带固定运行依赖。Mermaid 是构建依赖，其浏览器代码已作为字符串打包进生成资源，不在用户安装时重新安装。
+
+## 2026-10-26 v0.3 原生兼容核实
+
+复核官方 main `d0fd2e532059eeaec4c9e9e510fd65e1a3c6e1ed`，开发与实际宿主继续固定 0.13.0。
+
+- [DocumentFrame 公开契约](https://paseo.sh/docs/plugins/reference#documentframe)：原生容器仅加载本地文件 URL，禁用脚本、存储及页面导航。不能直接运行桌面 Mermaid 的脚本，也没有公开的生成 PluginFile 句柄接口。
+- [宿主 runtime 导出](https://github.com/getpaseo/paseo/blob/d0fd2e532059eeaec4c9e9e510fd65e1a3c6e1ed/packages/app/src/plugins/evaluate.ts)：公开注入 React Native 组件（Image、View、ScrollView、Pressable），并提供 openExternalUrl。原生插件无需引入 react-native-webview、SVG 原生库或修改宿主。
+- 因此服务端通过公开 RPC 返回 2x PNG 分片、链接位置和标题锚点。原生端只显示 Image 和原生链接层，所有浏览器脚本在主机的独立无头 Chrome/Edge 中执行。
+- 安装的 Paseo server 0.13.0 runtime 设置插件请求超时为 30 秒；本插件浏览器执行 20 秒和短队列 2 秒提前失败。无头浏览器经 Node child_process 的 DevTools pipe 通信，不依赖 Paseo 私有接口，不开放端口。
+- 默认启用浏览器沙箱；未添加 `--no-sandbox`。没有可用浏览器、受限 Linux/root 环境或 macOS 权限阻止运行时，展示错误并保留源码入口。

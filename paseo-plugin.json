@@ -1,7 +1,7 @@
 {
   "id": "paseo-markdown-math",
   "name": "Markdown + Math",
-  "description": "Markdown preview with locally bundled KaTeX and Mermaid, workspace/HTTP images and document links. Desktop/web preview; native read-only source.",
+  "description": "Markdown, KaTeX and Mermaid preview with workspace images and links. Native mobile previews use a Chrome/Edge/Chromium browser installed on the host.",
   "requirements": {
     "paseo": ">=0.13.0 <0.14.0"
   },

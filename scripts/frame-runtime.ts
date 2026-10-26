@@ -79,6 +79,7 @@ async function diagrams() {
     }
   }
   if (settings.hash) scrollToHash(settings.hash);
+  document.documentElement.setAttribute('data-preview-ready', 'true');
   notify({ type: 'ready' });
 }
 void diagrams().catch(error => { notify({ type: 'error', message: String(error) }); });

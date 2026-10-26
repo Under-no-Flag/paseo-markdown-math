@@ -1,7 +1,7 @@
 // npm artifacts ship generated assets; Git checkouts prepare them once.
 import {existsSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
-const generated=['client/generated/katex-css.ts','client/generated/frame-runtime.ts'];
+const generated=['shared/generated/katex-css.ts','shared/generated/frame-runtime.ts'];
 if(generated.every(file=>existsSync(file))){
   console.log('Prebuilt preview assets are present; no installation build is needed.');
 }else{

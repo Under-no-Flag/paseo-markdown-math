@@ -1,6 +1,7 @@
 node_modules/
 dist/
 client/generated/
+shared/generated/
 .DS_Store
 *.log
 test-results/

@@ -1,6 +1,6 @@
 {
   "name": "paseo-markdown-math",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "files": [
     "paseo-plugin.json",
     "index.client.tsx",
@@ -25,7 +25,9 @@
     "test:browser": "node scripts/browser-test.mjs",
     "prepack": "npm run build",
     "prepublishOnly": "npm run check",
-    "test:package": "node scripts/package-test.mjs"
+    "test:package": "node scripts/package-test.mjs",
+    "test:native": "tsx scripts/native-test.ts",
+    "test:native-ui": "node scripts/native-browser-test.mjs"
   },
   "devDependencies": {
     "@getpaseo/plugin": "0.13.0",

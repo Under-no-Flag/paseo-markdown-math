@@ -5,6 +5,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { z } from 'zod';
 import type { PreviewColors } from './render';
 import { mountPreview, type PreviewHandle, type PreviewActions } from './web';
+import { NativePreview } from './native';
 import { readResource } from '../shared/resources';
 
 const viewSchema = z.object({ view: z.enum(['preview', 'source']) });
@@ -34,7 +35,7 @@ function Preview({ text, colors, actions }: { text: string; colors: PreviewColor
   );
 }
 
-function FileContent(props: PluginFilePanelProps & { view: 'preview' | 'source'; linked?: {text:string}; actions: PreviewActions }) {
+function FileContent(props: PluginFilePanelProps & { view: 'preview' | 'source'; linked?: {text:string;path:string}; actions: PreviewActions }) {
   const original = useFileText(props.file);
   const state = props.linked ? {status:'ready' as const, text:props.linked.text} : original;
   const colors = useMemo<PreviewColors>(() => ({
@@ -47,12 +48,12 @@ function FileContent(props: PluginFilePanelProps & { view: 'preview' | 'source';
   }), [props.theme]);
   if (state.status === 'loading') return <Loading />;
   if (state.status === 'error') return <Text accessibilityRole="alert" style={{ color: props.theme.colors.statusDanger, padding: 16 }}>{state.error instanceof PluginFileDeletedError ? '文件已删除；重新创建后会自动刷新。' : `无法读取文件：${state.error.message}`}</Text>;
-  if (props.view === 'source' || props.layout.platform !== 'web') return (
+  if (props.view === 'source') return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20 }}>
-      {props.layout.platform !== 'web' ? <Text style={{ color: colors.muted, marginBottom: 12 }}>公式预览支持 Paseo 桌面端与 Web；此设备显示只读源码。</Text> : null}
       <Text selectable style={{ color: colors.foreground, fontFamily: 'monospace', lineHeight: 23 }}>{state.text || '（空文件）'}</Text>
     </ScrollView>
   );
+  if (props.layout.platform !== 'web') return <NativePreview text={state.text} sourcePath={props.linked?.path || props.file.path} workspaceId={props.workspaceId} colors={colors} actions={props.actions} />;
   return <Preview text={state.text} colors={colors} actions={props.actions} />;
 }
 

@@ -23,7 +23,8 @@ try{
   assert.deepEqual(pkg.bundleDependencies.sort(),Object.keys(pkg.dependencies).sort());
   for(const name of pkg.bundleDependencies)assert.ok(existsSync(join(installed,'node_modules',name,'package.json')),`Bundled dependency ${name}`);
   assert.ok(!pkg.dependencies.mermaid,'Mermaid must be prebundled, not installed for consumers');
-  for(const file of ['index.client.tsx','index.server.ts','client/generated/katex-css.ts','client/generated/frame-runtime.ts','docs/images/preview.png'])assert.ok((await stat(join(installed,file))).size>0,file);
+  for(const file of ['index.client.tsx','index.server.ts','shared/generated/katex-css.ts','shared/generated/frame-runtime.ts','docs/images/preview.png'])assert.ok((await stat(join(installed,file))).size>0,file);
+  assert.ok(!existsSync(join(installed,'client/generated/frame-runtime.ts')),'Obsolete duplicated runtime must not ship');
   assert.ok(!existsSync(join(installed,'dev')));
   assert.ok(!existsSync(join(installed,'tests')));
   assert.ok(!existsSync(join(temp,'node_modules','vite')));
@@ -41,11 +42,13 @@ try{
   client.default({addFilePanel(value){registration=value;return ()=>{cleaned=true}}})();
   assert.equal(registration.id,'markdown-math');assert.ok(cleaned);
   const serverModules={'@getpaseo/plugin':{defineRpc:v=>v},zod};
-  const backend=vm.runInNewContext(serverBundle,{Buffer})(id=>{if(id in serverModules)return serverModules[id];if(isBuiltin(id))return require(id);throw new Error(`Unexpected server host module: ${id}`)});
-  let handler;backend.default({handle(_contract,fn){handler=fn}});
+  const backend=vm.runInNewContext(serverBundle,{Buffer,process,setTimeout,clearTimeout})(id=>{if(id in serverModules)return serverModules[id];if(isBuiltin(id))return require(id);throw new Error(`Unexpected server host module: ${id}`)});
+  const handlers=new Map();backend.default({handle(contract,fn){handlers.set(contract.name,fn)}});
   const sourcePath=join(installed,'examples/math-demo.md');
   const context={paseo:{workspaces:{ref:()=>({directory:installed,refresh:async()=>{}})}}};
-  const result=await handler({workspaceId:'package-test',sourcePath,href:'./assets/流程%20示意.svg',kind:'image'},context);
+  const result=await handlers.get('markdown.resource')({workspaceId:'package-test',sourcePath,href:'./assets/流程%20示意.svg',kind:'image'},context);
   assert.match(result.content,/^data:image\/svg\+xml;base64,/);
-  console.log(JSON.stringify({package:`${pkg.name}@${pkg.version}`,tarballBytes:(await stat(tarball)).size,productionInstall:'PASS',prebuiltAssets:'PASS',paseoCompilation:'PASS',clientRegistration:'PASS',serverImageRpc:'PASS'},null,2));
+  const native=await handlers.get('markdown.native-preview')({workspaceId:'package-test',sourcePath,source:await readFile(sourcePath,'utf8'),width:390,colors:{background:'#fff',foreground:'#222',muted:'#666',border:'#ddd',accent:'#267',codeBackground:'#eee'},dark:false},context);
+  assert.ok(native.pages.length>0);assert.match(native.pages[0].uri,/^data:image\/png;base64,/);assert.deepEqual(Array.from(native.warnings),[]);
+  console.log(JSON.stringify({package:`${pkg.name}@${pkg.version}`,tarballBytes:(await stat(tarball)).size,productionInstall:'PASS',prebuiltAssets:'PASS',paseoCompilation:'PASS',clientRegistration:'PASS',serverImageRpc:'PASS',serverNativeRenderRpc:'PASS'},null,2));
 }finally{await rm(temp,{recursive:true,force:true})}
