@@ -37,5 +37,22 @@ try{
  // Superseded response must never replace newer file contents.
  await page.route('**/__markdown_resource',async route=>{const data=route.request().postDataJSON();if(data.input?.source?.includes('STALE_MARKER')){await new Promise(r=>setTimeout(r,1500));await route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({error:'STALE_MARKER'})})}else await route.fallback()});
  await page.getByRole('textbox',{name:'模拟磁盘文件内容'}).fill('# STALE_MARKER');await page.getByRole('button',{name:'应用变更',exact:true}).click();await page.waitForTimeout(300);await apply('# Current version\n\n$x^2$');await page.waitForTimeout(1600);await expect(page.getByRole('img').first()).toHaveAttribute('alt',/Current version/);await expect(page.getByRole('alert')).toHaveCount(0);pass('stale async response ignored');
+ const longSource='# Long start\n\n[Jump to last](#long-end)\n\n'+Array.from({length:240},(_,i)=>`## Section ${i}\n\nEquation $x^2+y^2=z^2$.\n\n`).join('')+'# Long end\n\n$E=mc^2$\n\n[Jump to first](#long-start)';
+ await page.setViewportSize({width:390,height:844});await apply(longSource);
+ await expect(page.getByText(/^第 1 \/ \d+ 页$/)).toBeVisible();await expect(page.getByRole('button',{name:'上一页预览'})).toBeDisabled();
+ await page.getByRole('button',{name:'下一页预览'}).click();await ready();await expect(page.getByText(/^第 2 \/ \d+ 页$/)).toBeVisible();
+ await page.getByRole('button',{name:'上一页预览'}).click();await ready();await expect(page.getByText(/^第 1 \/ \d+ 页$/)).toBeVisible();
+ await page.getByRole('link',{name:'Jump to last'}).click();await ready();await expect(page.getByRole('button',{name:'下一页预览'})).toBeDisabled({timeout:30000});
+ await expect(page.getByRole('link',{name:'Jump to first'})).toBeInViewport();await page.getByRole('button',{name:'模拟文件变更'}).click();
+ await page.screenshot({path:path.join(out,'native-long-last.png')});
+ await page.getByRole('link',{name:'Jump to first'}).click();await ready();await expect(page.getByText(/^第 1 \/ \d+ 页$/)).toBeVisible();await expect(page.getByRole('link',{name:'Jump to last'})).toBeInViewport();
+ await page.screenshot({path:path.join(out,'native-long-first.png')});
+ expect(await page.locator('img').count()).toBeLessThanOrEqual(3);
+ expect(await page.locator('img').evaluateAll(images=>images.reduce((sum,img)=>sum+img.naturalWidth*img.naturalHeight,0))).toBeLessThanOrEqual(12288000);
+ pass('long document pagination, previous/next, cross-page anchors and at most three image tiles');
+ await page.setViewportSize({width:1024,height:900});await ready();await expect(page.getByText(/^第 1 \/ \d+ 页$/)).toBeVisible();
+ await page.getByRole('button',{name:'下一页预览'}).click();await ready();await expect(page.getByText(/^第 2 \/ \d+ 页$/)).toBeVisible();
+ await page.getByRole('button',{name:'模拟文件变更'}).click();await apply('# Short replacement\n\n$x^2$');await expect(page.getByRole('img').first()).toHaveAttribute('alt',/Short replacement/);await expect(page.getByRole('button',{name:'下一页预览'})).toHaveCount(0);
+ pass('tablet-width pagination and file change resets to first page');
  expect(errors).toEqual([]);await writeFile(path.join(out,'results.json'),JSON.stringify({checks,errors,consoleErrors,scope:'React Native Web adapter, actual SDK hooks and headless Chrome renderer; not physical iOS'},null,2));
 }finally{await browser.close()}

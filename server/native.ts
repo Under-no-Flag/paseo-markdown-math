@@ -1,12 +1,13 @@
 import {createDocument,escapeHtml,type PreviewColors} from '../shared/render';
 import type {NativePreviewResult} from '../shared/native';
+import {pageStarts} from '../shared/pagination';
 import {BrowserPipe} from './browser';
 import {loadResource,resolveResource} from './resources';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {realpath} from 'node:fs/promises';
 
-const MAX_HEIGHT=24000;
+const MAX_HEIGHT=240000;
 const MAX_OUTPUT=8*1024*1024;
 let active=false;
 const waiters:Array<()=>void>=[];
@@ -24,7 +25,7 @@ async function acquire(){
 function release(){const next=waiters.shift();if(next)next();else active=false}
 const unescape=(value:string)=>value.replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&');
 
-export async function renderNative(root:string,input:{sourcePath:string;source:string;width:number;colors:PreviewColors;dark:boolean}):Promise<NativePreviewResult>{
+export async function renderNative(root:string,input:{sourcePath:string;source:string;width:number;colors:PreviewColors;dark:boolean;page?:number}):Promise<NativePreviewResult>{
   if(input.source.length>120000)throw new Error('移动端预览最多支持 120,000 字符，请使用源码视图。');
   // Validate the originating document even when it contains no image references.
   await resolveResource(root,input.sourcePath,encodeURIComponent(path.basename(await realpath(input.sourcePath))));
@@ -73,16 +74,25 @@ export async function renderNative(root:string,input:{sourcePath:string;source:s
     const geometry=await evaluate(`(()=>{const anchors=Object.create(null);for(const el of document.querySelectorAll('main [id]'))anchors[el.id]=el.getBoundingClientRect().top+scrollY;
       const links=[];for(const el of document.querySelectorAll('main a')){const href=el.getAttribute('data-local-link')||el.getAttribute('href');if(!href)continue;for(const r of el.getClientRects())links.push({x:r.x,y:r.y+scrollY,width:r.width,height:r.height,href,label:el.textContent||href})}
       const paragraphs=Array.from(document.querySelectorAll('main p, main h1, main h2, main h3, main pre, main li')).filter(el=>el.getClientRects().length && !el.closest('details')).map(el=>({y:el.getBoundingClientRect().top+scrollY,text:(el.textContent||'').slice(0,1000)}));
-      return {height:Math.ceil(document.documentElement.scrollHeight),anchors,links,paragraphs,warnings:Array.from(document.querySelectorAll('.resource-error')).map(el=>el.textContent||'渲染错误')}})()`);
-    if(geometry.height>MAX_HEIGHT)throw new Error('移动端预览过长（超过 24,000 像素），请拆分文档或使用源码视图。');
-    if (geometry.height * input.width * 4 > 16000000) throw new Error('移动端预览超过 1,600 万像素，请拆分文档或使用源码视图。');
+      return {height:Math.ceil(document.documentElement.scrollHeight),blockStarts:Array.from(document.querySelector('main').children).map(el=>el.getBoundingClientRect().top+scrollY),anchors,links,paragraphs,warnings:Array.from(document.querySelectorAll('.resource-error')).map(el=>el.textContent||'渲染错误')}})()`);
+    if(geometry.height>MAX_HEIGHT)throw new Error('移动端文档排版超过 240,000 像素，请拆分文档或使用源码视图。');
+    const starts=pageStarts(geometry.height,geometry.blockStarts);
+    const pageCount=starts.length;
+    const page=Math.max(0,Math.min(pageCount-1,Math.floor(input.page || 0)));
+    const startY=starts[page];
+    const pageHeight=(starts[page+1] ?? geometry.height)-startY;
+    const endY=startY+pageHeight;
     const pages:NativePreviewResult['pages']=[];let output=0;
-    for(let y=0;y<geometry.height;y+=1000){
-      const height=Math.min(1000,geometry.height-y);
+    // Render only the requested page. Other pages allocate no PNG buffers on either endpoint.
+    for(let y=startY;y<endY;y+=1000){
+      const height=Math.min(1000,endY-y);
       const {data}=await browser.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:true,clip:{x:0,y,width:input.width,height,scale:1}},sessionId);
-      output+=data.length;if(output>MAX_OUTPUT)throw new Error('移动端预览图片超过 8 MiB，请减少图片或拆分文档。');
-      pages.push({y,height,uri:`data:image/png;base64,${data}`,text:geometry.paragraphs.filter((p:{y:number})=>p.y>=y&&p.y<y+height).map((p:{text:string})=>p.text).join('\n').slice(0,4000)});
+      output+=data.length;if(output>MAX_OUTPUT)throw new Error('当前页预览图片超过 8 MiB，请减少图片或使用源码视图。');
+      pages.push({y:y-startY,height,uri:`data:image/png;base64,${data}`,text:geometry.paragraphs.filter((p:{y:number})=>p.y>=y&&p.y<y+height).map((p:{text:string})=>p.text).join('\n').slice(0,4000)});
     }
-    return {width:input.width,height:geometry.height,pages,links:geometry.links.slice(0,500),anchors:geometry.anchors,warnings:[...new Set<string>([...warnings,...geometry.warnings])].slice(0,32)};
+    const links=geometry.links.filter((link:{y:number;height:number})=>link.y<endY&&link.y+link.height>startY)
+      .slice(0,500).map((link:{y:number;height:number})=>({...link,y:Math.max(startY,link.y)-startY,height:Math.min(endY,link.y+link.height)-Math.max(startY,link.y)}));
+    return {width:input.width,height:pageHeight,totalHeight:geometry.height,page,pageCount,startY,pageStarts:starts,pages,links,anchors:geometry.anchors,warnings:[...new Set<string>([...warnings,...geometry.warnings])].slice(0,32)};
+
   }finally{try{await browser?.close()}finally{release()}}
 }

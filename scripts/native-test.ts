@@ -29,7 +29,21 @@ try{
  console.log('PASS: network images never fetched, raw HTML inert, bad diagram/image isolated');
 }finally{server.close()}
 await assert.rejects(renderNative(root,{...input,source:'x'.repeat(120001)}),/120,000/);
-await assert.rejects(renderNative(root,{...input,source:'# Heading\n\n'.repeat(500)}),/24,000/);
+const longSource='# Long start\n\n[To end](#long-end)\n\n'+Array.from({length:300},(_,i)=>`## Section ${i}\n\nEquation $x^2 + y^2 = z^2$.\n\n`).join('')+'# Long end\n\n[To start](#long-start)';
+const longInput={...input,source:longSource,width:1024};
+const first=await renderNative(root,longInput);
+assert.ok(first.totalHeight*first.width*4>16000000,'Fixture must exceed the old whole-document pixel limit');
+assert.ok(first.totalHeight>24000,'Fixture must also exceed the old height limit');
+assert.equal(first.page,0);assert.ok(first.pageCount>3);assert.equal(first.startY,0);
+assert.ok(first.links.some(link=>link.href==='#long-end'));
+assert.ok(first.pages.reduce((pixels,tile)=>pixels+tile.height*first.width*4,0)<=12288000);
+const second=await renderNative(root,{...longInput,page:1});
+assert.equal(second.startY,first.pageStarts[1]);assert.equal(second.pages[0].y,0);assert.equal(second.page,1);
+assert.ok(second.links.every(link=>link.y>=0&&link.y+link.height<=second.height));
+const last=await renderNative(root,{...longInput,page:9999});
+assert.equal(last.page,last.pageCount-1);assert.equal(last.startY+last.height,last.totalHeight);
+assert.match(last.pages.map(tile=>tile.text).join(' '),/Long end/);assert.ok(last.links.some(link=>link.href==='#long-start'));
+console.log('PASS: document over 16M pixels/24k height, bounded first/second/last page, cross-page anchors and page clamping');
 const outside=await mkdtemp(path.join(tmpdir(),'paseo-native-outside-'));
 try{
  await writeFile(path.join(outside,'secret.md'),'secret');await assert.rejects(renderNative(root,{...input,sourcePath:path.join(outside,'secret.md')}),/不在当前工作区/);

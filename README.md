@@ -1,6 +1,6 @@
 # Paseo Markdown + Math
 
-独立 Paseo 文件面板插件 v0.3.0。为已有 Markdown 文件提供 **KaTeX 公式、Mermaid 图表、图片和文档链接**，通过 `addFilePanel` 注册，不修改 Paseo 主项目，不依赖 Canvas。
+独立 Paseo 文件面板插件 v0.3.1。为已有 Markdown 文件提供 **KaTeX 公式、Mermaid 图表、图片和文档链接**，通过 `addFilePanel` 注册，不修改 Paseo 主项目，不依赖 Canvas。
 
 ## 使用
 
@@ -57,12 +57,13 @@ flowchart LR
 iPhone 连接的 **Paseo 主机**需安装 Chrome、Edge 或 Chromium，iPhone 不需要安装浏览器扩展或 TeX。在主机更新插件后，在手机重新打开 Markdown + Math 文件面板。旧版把所有原生平台直接切到源码；v0.3 改用主机生成的 2 倍分辨率 PNG 分片，并叠加可点击的文档链接。
 
 - 支持与桌面相同的 KaTeX 语法、Mermaid 引擎、本地图片、相对文档/锚点/外链、明暗主题和自动更新。
+- 长文档分页阅读，点击「上一页 / 下一页」；文内标题链接可自动跨页定位。每次只生成、传输和显示当前页，翻页会重新请求主机渲染。优先在段落、公式或图表边界分页，特别高的单个内容块可能跨页。
 - iOS 双指缩放可放大至 4 倍。图像中的文字不能直接选择；复制请切换「只读源码」。Mermaid 源码也可从源码视图查看。动态图像只保留截图时的一帧。
 - 每次预览启动独立的无头浏览器和临时资料目录，结束后关闭、清理；不使用个人浏览器资料、不自动下载浏览器、不开放调试端口。
 - 无头浏览器的文档资源请求被阻止。本地图片经工作区边界检查后内嵌，网络图片改为链接，避免由主机代为访问任意地址。
 - 非标准浏览器路径可在**启动 daemon 的环境**中设置 `PASEO_MARKDOWN_BROWSER`，值为可执行文件的完整路径。仅在终端里设置不会影响已经运行的桌面 daemon；重新启动后生效。
 - 浏览器执行限 20 秒，排队限 2 秒；最多一个渲染任务和两个短暂排队请求。失败显示原因并提供「重试预览」，源码始终可用。
-- 移动端限 120,000 字符、24,000 CSS 像素高度、1,600 万输出像素和 8 MiB 编码图像数据，以先达到者为准。
+- 移动端限 120,000 字符、整篇排版高度 240,000 CSS 像素。每页至多 3,000 CSS 像素高、最多三块 2x PNG；即使 1,024px 宽也不超过约 1,230 万输出像素。8 MiB 编码图像限制按当前页计算，已移除旧版整篇 1,600 万像素限制。
 
 实现完全在插件仓库内，没有修改 Paseo 主项目或调用私有原生 WebView。已验证主机渲染与 RN Web 原生分支适配器；**尚未完成 iPhone 真机、iOS 双指手势和 Android 验收**。无浏览器的主机仍可使用桌面/Web 预览及移动端源码。
 
@@ -71,10 +72,10 @@ iPhone 连接的 **Paseo 主机**需安装 Chrome、Edge 或 Chromium，iPhone �
 在目标 Paseo daemon 所在主机执行：
 
 ```sh
-paseo plugin install npm:paseo-markdown-math@0.3.0
+paseo plugin install npm:paseo-markdown-math@0.3.1
 ```
 
-也可在 Paseo「设置 → 插件」填写 `npm:paseo-markdown-math@0.3.0`。这是插件包，不是供应用代码导入的 JavaScript 库。需要 Paseo 0.13.x 和可用的 npm。
+也可在 Paseo「设置 → 插件」填写 `npm:paseo-markdown-math@0.3.1`。这是插件包，不是供应用代码导入的 JavaScript 库。需要 Paseo 0.13.x 和可用的 npm。
 
 npm 包包含字体、Mermaid 生成资源和固定的运行依赖，不会在安装时下载开发工具或重新构建前端。npm 12 已移除 shrinkwrap 支持，因此使用 `bundleDependencies` 固定随包发布的运行依赖树。
 
@@ -160,7 +161,7 @@ npm ci
 npm run check
 npm pack --pack-destination ..
 npm run test:package
-npm publish ../paseo-markdown-math-0.3.0.tgz --access public
+npm publish ../paseo-markdown-math-0.3.1.tgz --access public
 ```
 
 `prepack` 生成资源。npm 包包含运行源文件、只读准备脚本、示例、文档和运行依赖；开发页、测试工具与构建工具只保留在 Git 仓库。`test:package` 把实际压缩包安装到开发仓库外的临时目录，禁用安装脚本及开发依赖，再用真实 Paseo 编译器验证客户端注册、服务端图片 RPC 和原生预览 RPC（需主机浏览器）。该测试需要本机 Paseo 0.13 CLI。

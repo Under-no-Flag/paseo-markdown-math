@@ -11,31 +11,46 @@ export function NativePreview({text, sourcePath, workspaceId, colors, actions}: 
   const rpc = useRpc(nativePreview);
   const scroll = useRef<ScrollView>(null);
   const [width, setWidth] = useState(0);
+  const [requestedPage, setRequestedPage] = useState(0);
+  const pendingAnchor = useRef<string | null>(actions.hash || null);
   const [retry, setRetry] = useState(0);
   const [result, setResult] = useState<NativePreviewResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const renderWidth = Math.min(1024, Math.max(280, Math.round(width)));
   const scale = width / renderWidth;
   useEffect(() => {
+    setRequestedPage(0);
+    pendingAnchor.current = actions.hash || null;
+  }, [text, sourcePath, workspaceId, renderWidth, colors, actions.dark, actions.hash]);
+  useEffect(() => {
     if (!width) return;
     if (text.length > 120000) {setResult(null); setError('移动端预览最多支持 120,000 字符，请使用源码视图。'); return}
     let active = true;
     setResult(null); setError(null);
     const timer = setTimeout(() => {
-      void rpc({workspaceId, sourcePath, source: text, width: renderWidth, colors, dark: !!actions.dark}).then(
+      void rpc({workspaceId, sourcePath, source: text, width: renderWidth, colors, dark: !!actions.dark, page: requestedPage}).then(
         value => {if (active) setResult(value)},
         cause => {if (active) setError(cause instanceof Error ? cause.message : String(cause))},
       );
     }, 150);
     return () => {active = false; clearTimeout(timer)};
-  }, [rpc, workspaceId, sourcePath, text, renderWidth, colors, actions.dark, retry, !!width]);
+  }, [rpc, workspaceId, sourcePath, text, renderWidth, colors, actions.dark, requestedPage, retry, !!width]);
   const jump = (hash: string) => {
     let id: string;
     try {id = decodeURIComponent(hash.replace(/^#/, ''))} catch {return}
-    const y = result?.anchors[id];
-    if (y !== undefined) scroll.current?.scrollTo({y: y * scale, animated: true});
+    const y = id ? result?.anchors[id] : 0;
+    if (y === undefined || !result) return;
+    const nextPage = result.pageStarts.findIndex(start => start > y);
+    const targetPage = nextPage === -1 ? result.pageCount - 1 : Math.max(0, nextPage - 1);
+    if (targetPage !== result.page) {
+      pendingAnchor.current = hash;
+      setRequestedPage(targetPage);
+    } else {
+      pendingAnchor.current = null;
+      scroll.current?.scrollTo({y: Math.max(0, y - result.startY) * scale, animated: true});
+    }
   };
-  useEffect(() => {if (result && actions.hash) jump(actions.hash)}, [result, actions.hash]);
+  const turnPage = (page: number) => {pendingAnchor.current = null; setRequestedPage(page)};
   const follow = (href: string) => {
     if (href.startsWith('#')) jump(href);
     else if (/^(https?:|mailto:|tel:)/i.test(href)) void openExternalUrl(href).catch(cause => setError(String(cause)));
@@ -46,7 +61,15 @@ export function NativePreview({text, sourcePath, workspaceId, colors, actions}: 
     {!result && !error ? <Text style={{padding: 16, color: colors.muted}}>主机正在渲染公式与图表…</Text> : null}
     {result ? <>
       <Text style={{paddingHorizontal: 12, paddingVertical: 6, color: colors.muted, fontSize: 12}}>双指缩放查看细节 · 复制文字请切换只读源码{result.warnings.length ? ` · ${result.warnings.join('；')}` : ''}</Text>
-      <ScrollView ref={scroll} style={{flex: 1}} minimumZoomScale={1} maximumZoomScale={4} bouncesZoom>
+      {result.pageCount > 1 ? <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, borderBottomWidth: 1, borderColor: colors.border}}>
+        <Pressable accessibilityRole="button" accessibilityLabel="上一页预览" disabled={result.page === 0} accessibilityState={{disabled: result.page === 0}} onPress={() => turnPage(result.page - 1)} style={{paddingVertical: 12}}><Text style={{color: result.page === 0 ? colors.muted : colors.accent}}>上一页</Text></Pressable>
+        <Text style={{color: colors.foreground}}>第 {result.page + 1} / {result.pageCount} 页</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel="下一页预览" disabled={result.page + 1 === result.pageCount} accessibilityState={{disabled: result.page + 1 === result.pageCount}} onPress={() => turnPage(result.page + 1)} style={{paddingVertical: 12}}><Text style={{color: result.page + 1 === result.pageCount ? colors.muted : colors.accent}}>下一页</Text></Pressable>
+      </View> : null}
+      <ScrollView key={result.page} ref={scroll} onContentSizeChange={() => {
+        // Wait for native content layout; a JS timer can run before scrollTo is usable.
+        if (pendingAnchor.current !== null) jump(pendingAnchor.current);
+      }} style={{flex: 1}} minimumZoomScale={1} maximumZoomScale={4} bouncesZoom>
         <View style={{width, height: result.height * scale}}>
           {result.pages.map(page => <View key={page.y} style={{position: 'absolute', left: 0, top: page.y * scale, width, height: page.height * scale}}>
             <Image onError={() => setError('预览图无法加载，请重试或切换只读源码。')} source={{uri: page.uri}} resizeMode="stretch" accessibilityLabel={page.text || 'Markdown 公式和图表预览'} style={{width, height: page.height * scale}} />
